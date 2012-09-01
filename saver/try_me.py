@@ -8,14 +8,18 @@ from random import uniform
 class Point:
     def __init__(self, pos, speed, w, h):
         self.pos = pos
-        self.color = (int(uniform(50, 200)) , 0, 0)
         self.size = int(uniform(10, 25))
+        self.color = [0, int(50 + ((self.size - 10) * 10)), 0]
         self.speed = speed
         self.speed.length /= 4
         self.w, self.h = w, h
         self.alive = True
         
     def update(self, others, gravity, magnets, box, merge):
+        if self.speed.length < 255:
+            self.color[0] = self.speed.length
+        else:
+            self.color[0] = 255
         for point in others:
             if point is not self and point.alive:
                 dir = point.pos - self.pos
@@ -62,28 +66,31 @@ class Point:
                 
         self.pos += self.speed
         
-    def draw(self, screen):
-        pygame.draw.circle(screen, self.color, (int(self.pos[0]), int(self.pos[1])), self.size)
+    def draw(self, screen, zoom, offset):
+        pygame.draw.circle(screen, self.color, (int(self.pos[0] * zoom) + offset[0], int(self.pos[1] * zoom) + offset[1]), int(self.size * zoom))
         if self.speed.length > 30:
-            self.draw_vector(screen)
+            self.draw_vector(screen, zoom, offset)
     
-    def draw_vector(self, screen):
-        pygame.draw.line(screen, (0, 0, 0), self.pos, self.pos + self.speed)
+    def draw_vector(self, screen, zoom, offset):
+        pygame.draw.line(screen, (0, 0, 0), self.pos * zoom + offset, (self.pos + self.speed) * zoom  + offset)
 
 class Starter(PygameHelper):
     def __init__(self):
-        self.w, self.h = 3500, 900
+        self.w, self.h = 1200, 700
         PygameHelper.__init__(self, size=(self.w, self.h), fill=((255,255,255)))
         
         self.points = []
         self.mouse_gravity = False
+        self.mouse_gravity_point = vec2d(0, 0)
         self.gravity = True
         self.clear_screen = True
         self.magnetisum = False
         self.box = True
         self.merge = False
+        self.offset = vec2d(0, 0)
         self.motion = vec2d(0, 0)
         self.pos = vec2d(0, 0)
+        self.zoom = 1
         self.cleaner = pygame.image.load("cleaner.png")
         
     def update(self):
@@ -92,7 +99,7 @@ class Starter(PygameHelper):
                 point.update(self.points, self.gravity, self.magnetisum, self.box, self.merge)
         if self.mouse_gravity:
             for point in self.points:
-                rel_pos = self.pos - point.pos
+                rel_pos = self.mouse_gravity_point - point.pos
                 rel_pos.length = 3
                 point.speed += rel_pos
         
@@ -100,6 +107,7 @@ class Starter(PygameHelper):
         if key == 100:
             self.mouse_gravity = not self.mouse_gravity
             print("Mouse Gravity is : ", self.mouse_gravity)
+            self.mouse_gravity_point = self.pos
         if key == 97:
             self.gravity = not self.gravity
             print("Normal Gravity is : ", self.gravity)
@@ -116,26 +124,36 @@ class Starter(PygameHelper):
         if key == 101:
             self.merge = not self.merge
             print("Ball merge is : ", self.merge)
+        if key == 269:
+            self.zoom *= 0.5
+        if key == 270:
+            self.zoom *= 2
+        if key == 273:
+            self.offset[1] -= 10
+        if key == 274:
+            self.offset[1] += 10
+        if key == 275:
+            self.offset[0] += 10
+        if key == 276:
+            self.offset[0] -= 10
         
     def mouseUp(self, button, pos):
-        temp = Point(pos, self.motion, self.w, self.h)
+        temp = Point(pos * self.zoom + self.offset, self.motion, self.w, self.h)
         self.points.append(temp)
         
         
     def mouseMotion(self, buttons, pos, rel):
-        self.motion = vec2d(rel)
-        self.pos = vec2d(pos)
+        self.motion = vec2d(rel) * self.zoom + self.offset
+        self.pos = vec2d(pos)  * self.zoom + self.offset
         
         
     def draw(self):
         if self.clear_screen:
             self.screen.fill((255, 255, 255))
-        else:
-            pass
-            #self.screen.blit(self.cleaner, (0, 0))
         for point in self.points:
-            #if point.alive and point.pos[0] > 0 and point.pos[0] < self.w and point.pos[1] > 0 and point.pos[1] < self.h:
-            point.draw(self.screen)
+            if point.alive:
+                #if point.pos[0] > 0 and point.pos[0] < self.w and point.pos[1] > 0 and point.pos[1] < self.h:
+                point.draw(self.screen, self.zoom, self.offset)
         
 s = Starter()
 s.mainLoop(40)
